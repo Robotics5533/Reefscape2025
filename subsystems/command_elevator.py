@@ -32,7 +32,7 @@ class CommandElevator(Subsystem):
         self.following_motor = following_motor
 
         self.sys_id_routine = SysIdRoutine(
-            SysIdRoutine.Config(), 
+            SysIdRoutine.Config(stepVoltage=3), 
             SysIdRoutine.Mechanism(self.move, self.log, self),
         )
 

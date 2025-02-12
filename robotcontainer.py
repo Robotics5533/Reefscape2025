@@ -8,6 +8,7 @@ import commands2
 import commands2.button
 import commands2.cmd
 from commands2.sysid import SysIdRoutine
+from pathplannerlib.auto import AutoBuilder
 import wpilib
 from subsystems.command_coral_outake import CoralOutake
 from subsystems.command_elevator import CommandElevator
@@ -16,6 +17,14 @@ from telemetry import Telemetry
 from phoenix6 import swerve, hardware
 from wpimath.geometry import Rotation2d
 from wpimath.units import rotationsToRadians
+
+from pathplannerlib.config import RobotConfig
+from pathplannerlib.auto import AutoBuilder
+from pathplannerlib.controller import PPHolonomicDriveController
+from pathplannerlib.config import RobotConfig, PIDConstants
+
+from utils.constants import MAX_ELEVATOR_HEIGHT, MIN_ELEVATOR_HEIGHT
+from utils.math import inchesToRotations
 
 
 class RobotContainer:
@@ -27,6 +36,7 @@ class RobotContainer:
     """
 
     def __init__(self) -> None:
+
         self._max_speed = (
             TunerConstants.speed_at_12_volts
         )  # speed_at_12_volts desired top speed
@@ -56,6 +66,9 @@ class RobotContainer:
         self.drivetrain = TunerConstants.create_drivetrain()
         # self.coral_outake = CoralOutake(wpilib.Spark(3))
         self.elevator = CommandElevator(hardware.TalonFX(13), hardware.TalonFX(14))
+
+        self.autoChooser = AutoBuilder.buildAutoChooser()
+        wpilib.SmartDashboard.putData("Auto Chooser", self.autoChooser)
 
         # Configure the button bindings
         self.configureButtonBindings()
@@ -95,45 +108,35 @@ class RobotContainer:
             )
         )
 
-        
-
-        # Run SysId routines when holding back/start and X/Y.
-        # Note that each routine should be run exactly once in a single log.
-        (self._joystick.back() & self._joystick.y()).whileTrue(
-            self.drivetrain.sys_id_dynamic(SysIdRoutine.Direction.kForward)
-        )
-        (self._joystick.back() & self._joystick.x()).whileTrue(
-            self.drivetrain.sys_id_dynamic(SysIdRoutine.Direction.kReverse)
-        )
-        (self._joystick.start() & self._joystick.y()).whileTrue(
-            self.drivetrain.sys_id_quasistatic(SysIdRoutine.Direction.kForward)
-        )
-        (self._joystick.start() & self._joystick.x()).whileTrue(
-            self.drivetrain.sys_id_quasistatic(SysIdRoutine.Direction.kReverse)
-        )
-
         (self._functional_controller.y()).whileTrue(
             self.elevator.sys_id_dynamic(SysIdRoutine.Direction.kForward)
-        )
-        (self._functional_controller.b()).whileTrue(
-            self.elevator.sys_id_dynamic(SysIdRoutine.Direction.kReverse)
-        )
-        (self._functional_controller.a()).whileTrue(
-            self.elevator.sys_id_quasistatic(SysIdRoutine.Direction.kForward)
-        )
-        (self._functional_controller.x()).whileTrue(
-            self.elevator.sys_id_quasistatic(SysIdRoutine.Direction.kReverse)
+            .until(
+                lambda: self.elevator.leading_motor.get_position()
+                >= inchesToRotations(MAX_ELEVATOR_HEIGHT)
+            )
+            .andThen(self.elevator.sys_id_dynamic(SysIdRoutine.Direction.kReverse))
+            .until(
+                lambda: self.elevator.leading_motor.get_position()
+                <= inchesToRotations(MIN_ELEVATOR_HEIGHT)
+            )
+            .andThen(self.elevator.sys_id_quasistatic(SysIdRoutine.Direction.kForward))
+            .until(
+                lambda: self.elevator.leading_motor.get_position()
+                >= inchesToRotations(MAX_ELEVATOR_HEIGHT)
+            )
+            .andThen(self.elevator.sys_id_quasistatic(SysIdRoutine.Direction.kReverse))
+            .until(
+                lambda: self.elevator.leading_motor.get_position()
+                <= inchesToRotations(MIN_ELEVATOR_HEIGHT)
+            )
         )
 
         # self._functional_controller.y().whileTrue(self.elevator.move_to("LEVEL_3"))
-        
 
         # reset the field-centric heading on left bumper press
         self._joystick.leftBumper().onTrue(
             self.drivetrain.runOnce(lambda: self.drivetrain.seed_field_centric())
         )
-
-        
 
         # self._functional_controller.b().onTrue(lambda: self.coral_outake.outake(50))
 
@@ -142,8 +145,4 @@ class RobotContainer:
         )
 
     def getAutonomousCommand(self) -> commands2.Command:
-        """Use this to pass the autonomous command to the main {@link Robot} class.
-
-        :returns: the command to run in autonomous
-        """
-        return commands2.cmd.print_("No autonomous command configured")
+        return self.autoChooser.getSelected()
