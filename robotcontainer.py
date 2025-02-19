@@ -7,25 +7,19 @@
 import commands2
 import commands2.button
 import commands2.cmd
-from commands2.sysid import SysIdRoutine
-from pathplannerlib.auto import AutoBuilder
-import wpilib
-from subsystems.command_coral_outake import CoralOutake
-from subsystems.command_elevator import CommandElevator
+from commands2 import cmd
+from subsystems.elevator.command import CommandElevator
 from generated.tuner_constants import TunerConstants
 from telemetry import Telemetry
-from phoenix6 import swerve, hardware
+from phoenix6 import swerve
+from phoenix6.hardware import TalonFX
 from wpimath.geometry import Rotation2d
 from wpimath.units import rotationsToRadians
-
-from pathplannerlib.config import RobotConfig
-from pathplannerlib.auto import AutoBuilder
-from pathplannerlib.controller import PPHolonomicDriveController
-from pathplannerlib.config import RobotConfig, PIDConstants
+from subsystems.elevator.coral.rotate import RotateCommand
+from commands2.sysid import SysIdRoutine
 
 from utils.constants import MAX_ELEVATOR_HEIGHT, MIN_ELEVATOR_HEIGHT
 from utils.math import inchesToRotations
-
 
 class RobotContainer:
     """
@@ -38,7 +32,7 @@ class RobotContainer:
     def __init__(self) -> None:
 
         self._max_speed = (
-            TunerConstants.speed_at_12_volts
+            TunerConstants.speed_at_12_volts * 0.25
         )  # speed_at_12_volts desired top speed
         self._max_angular_rate = rotationsToRadians(
             0.75
@@ -64,11 +58,13 @@ class RobotContainer:
         self._functional_controller = commands2.button.CommandXboxController(1)
 
         self.drivetrain = TunerConstants.create_drivetrain()
+        # self.rotate_motor = TalonFX(15)  # Using CAN ID 15 for the rotate motor
+        # self.rotate_command = RotateCommand(self.rotate_motor, self._functional_controller)
         # self.coral_outake = CoralOutake(wpilib.Spark(3))
-        self.elevator = CommandElevator(hardware.TalonFX(13), hardware.TalonFX(14))
+        self.elevator = CommandElevator(TalonFX(13), TalonFX(14))
 
-        self.autoChooser = AutoBuilder.buildAutoChooser()
-        wpilib.SmartDashboard.putData("Auto Chooser", self.autoChooser)
+        # self.autoChooser = AutoBuilder.buildAutoChooser()
+        # wpilib.SmartDashboard.putData("Auto Chooser", self.autoChooser)
 
         # Configure the button bindings
         self.configureButtonBindings()
@@ -83,22 +79,15 @@ class RobotContainer:
         # Note that X is defined as forward according to WPILib convention,
         # and Y is defined as to the left according to WPILib convention.
         self.drivetrain.setDefaultCommand(
-            # Drivetrain will execute this command periodically
             self.drivetrain.apply_request(
-                lambda: (
-                    self._drive.with_velocity_x(
-                        -self._joystick.getLeftY() * self._max_speed
-                    )  # Drive forward with negative Y (forward)
-                    .with_velocity_y(
-                        -self._joystick.getLeftX() * self._max_speed
-                    )  # Drive left with negative X (left)
-                    .with_rotational_rate(
-                        -self._joystick.getRightX() * self._max_angular_rate
-                    )  # Drive counterclockwise with negative X (left)
-                )
+                lambda: self._drive
+                    .with_velocity_x(-self._joystick.getLeftY() * self._max_speed)
+                    .with_velocity_y(-self._joystick.getLeftX() * self._max_speed)
+                    .with_rotational_rate(-self._joystick.getRightX() * self._max_angular_rate)
             )
         )
 
+        # Simplified button bindings for better performance
         self._joystick.a().whileTrue(self.drivetrain.apply_request(lambda: self._brake))
         self._joystick.b().whileTrue(
             self.drivetrain.apply_request(
@@ -108,35 +97,50 @@ class RobotContainer:
             )
         )
 
-        (self._functional_controller.y()).whileTrue(
-            self.elevator.sys_id_dynamic(SysIdRoutine.Direction.kForward)
-            .until(
-                lambda: self.elevator.leading_motor.get_position()
-                >= inchesToRotations(MAX_ELEVATOR_HEIGHT)
-            )
-            .andThen(self.elevator.sys_id_dynamic(SysIdRoutine.Direction.kReverse))
-            .until(
+        # (self._functional_controller.y()).whileTrue(
+        #     self.elevator.sys_id_dynamic(SysIdRoutine.Direction.kForward)
+        #     .until(
+        #         lambda: self.elevator.leading_motor.get_position()
+        #         >= inchesToRotations(MAX_ELEVATOR_HEIGHT)
+        #     )
+        #     .andThen(self.elevator.sys_id_dynamic(SysIdRoutine.Direction.kReverse))
+        #     .until(
+        #         lambda: self.elevator.leading_motor.get_position()
+        #         <= inchesToRotations(MIN_ELEVATOR_HEIGHT)
+        #     )
+        #     .andThen(self.elevator.sys_id_quasistatic(SysIdRoutine.Direction.kForward))
+        #     .until(
+        #         lambda: self.elevator.leading_motor.get_position()
+        #         >= inchesToRotations(MAX_ELEVATOR_HEIGHT)
+        #     )
+        #     .andThen(self.elevator.sys_id_quasistatic(SysIdRoutine.Direction.kReverse))
+            # .until(
+            #     lambda: self.elevator.leading_motor.get_position()
+            #     <= inchesToRotations(MIN_ELEVATOR_HEIGHT)
+            # )
+        # )
+        self._functional_controller.y().whileTrue(cmd.runEnd(
+            lambda: self.elevator.move(2),
+            lambda: self.elevator.brake()
+        ))
+        self._functional_controller.a().whileTrue(cmd.runEnd(
+            lambda: self.elevator.move(-2),
+            lambda: self.elevator.brake()
+        ))
+        self._functional_controller.b().whileTrue(cmd.run(self.elevator.move(2)).until(
                 lambda: self.elevator.leading_motor.get_position()
                 <= inchesToRotations(MIN_ELEVATOR_HEIGHT)
-            )
-            .andThen(self.elevator.sys_id_quasistatic(SysIdRoutine.Direction.kForward))
-            .until(
-                lambda: self.elevator.leading_motor.get_position()
-                >= inchesToRotations(MAX_ELEVATOR_HEIGHT)
-            )
-            .andThen(self.elevator.sys_id_quasistatic(SysIdRoutine.Direction.kReverse))
-            .until(
-                lambda: self.elevator.leading_motor.get_position()
-                <= inchesToRotations(MIN_ELEVATOR_HEIGHT)
-            )
-        )
+            ))
 
-        # self._functional_controller.y().whileTrue(self.elevator.move_to("LEVEL_3"))
+        #self._functional_controller.y().whileTrue(self.elevator.move_to("LEVEL_3"))
 
         # reset the field-centric heading on left bumper press
         self._joystick.leftBumper().onTrue(
             self.drivetrain.runOnce(lambda: self.drivetrain.seed_field_centric())
         )
+
+        # Removed redundant right trigger binding since it's handled by setDefaultCommand
+        # self.rotate_command.setDefaultCommand(self.rotate_command)
 
         # self._functional_controller.b().onTrue(lambda: self.coral_outake.outake(50))
 
@@ -145,4 +149,4 @@ class RobotContainer:
         )
 
     def getAutonomousCommand(self) -> commands2.Command:
-        return self.autoChooser.getSelected()
+        return commands2.cmd.print_("No autonomous command configured")

@@ -7,6 +7,7 @@ from wpilib.sysid import SysIdRoutineLog
 from wpilib import RobotController
 from wpimath.controller import PIDController
 import math
+from phoenix6 import signals
 
 from utils.constants import ELEVATOR_LEVELS
 from utils.math import inchesToRotations
@@ -41,8 +42,10 @@ class CommandElevator(Subsystem):
         self.following_motor.setVoltage(-voltage)
     
     def brake(self):
-        self.leading_motor.set_control(controls.StaticBrake())
-        self.following_motor.set_control(controls.StaticBrake())
+        self.leading_motor.setVoltage(0)
+        self.leading_motor.setNeutralMode(signals.NeutralModeValue.BRAKE)
+        self.following_motor.setVoltage(0)
+        self.following_motor.setNeutralMode(signals.NeutralModeValue.BRAKE)
 
     # def move_to(self, level: str) -> Command:
     #     """

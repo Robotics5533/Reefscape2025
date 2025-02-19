@@ -6,11 +6,6 @@ from typing import Callable, overload
 from wpilib import DriverStation, Notifier, RobotController
 from wpilib.sysid import SysIdRoutineLog
 from wpimath.geometry import Rotation2d
-from pathplannerlib.config import RobotConfig
-from pathplannerlib.auto import AutoBuilder
-from pathplannerlib.controller import PPHolonomicDriveController
-from pathplannerlib.config import RobotConfig, PIDConstants
-
 
 class CommandSwerveDrivetrain(Subsystem, swerve.SwerveDrivetrain):
     """
@@ -145,23 +140,23 @@ class CommandSwerveDrivetrain(Subsystem, swerve.SwerveDrivetrain):
     ):
         Subsystem.__init__(self)
 
-        config = RobotConfig.fromGUISettings()
+        # config = RobotConfig.fromGUISettings()
         
-        AutoBuilder.configure(
-            self.get_state().pose,
-            self.reset_pose,
-            self.get_robot_relative_speed,
-            lambda speeds, feedforwards: self.drive_robot_relative(speeds),
-            PPHolonomicDriveController(
-                PIDConstants(2.0, 0.0, 0.1),
-                PIDConstants(
-                    3.0, 0.0, 0.2
-                ), 
-            ),
-            config,
-            self.should_flip_path,
-            self,
-        )
+        # AutoBuilder.configure(
+        #     self.get_state().pose,
+        #     self.reset_pose,
+        #     self.get_robot_relative_speed,
+        #     lambda speeds, feedforwards: self.drive_robot_relative(speeds),
+        #     PPHolonomicDriveController(
+        #         PIDConstants(2.0, 0.0, 0.1),
+        #         PIDConstants(
+        #             3.0, 0.0, 0.2
+        #         ), 
+        #     ),
+        #     config,
+        #     self.should_flip_path,
+        #     self,
+        # )
         
 
         swerve.SwerveDrivetrain.__init__(
