@@ -37,9 +37,15 @@ class CommandElevator(Subsystem):
             SysIdRoutine.Mechanism(self.move, self.log, self),
         )
 
-    def move(self, voltage: float):
+    def move_motor(self, voltage: float):
         self.leading_motor.setVoltage(voltage)
         self.following_motor.setVoltage(-voltage)
+
+    def move(self, voltage: float) -> Command:
+        return cmd.runEnd(
+            lambda: self.move_motor(voltage),
+            lambda: self.brake()
+        )
     
     def brake(self):
         self.leading_motor.setVoltage(0)
@@ -67,10 +73,10 @@ class CommandElevator(Subsystem):
     #     def measurement():
     #         return self.leading_motor.get_position().value
 
-    #     return cmd.runEnd(
-    #         lambda: self.move(pid.calculate(measurement())),
-    #         lambda: self.brake()
-    #     )
+        # return cmd.runEnd(
+        #     lambda: self.move(pid.calculate(measurement())),
+        #     lambda: self.brake()
+        # )
 
     def log(self, sys_id_routine: SysIdRoutineLog) -> None:
         sys_id_routine.motor("leading_motor").voltage(

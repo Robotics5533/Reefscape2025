@@ -8,8 +8,10 @@ import commands2
 import commands2.button
 import commands2.cmd
 from commands2 import cmd
+from subsystems.climb.command import Climb
 from subsystems.elevator.command import CommandElevator
 from generated.tuner_constants import TunerConstants
+from subsystems.elevator.coral.bottom_wheels import BottomWheels
 from telemetry import Telemetry
 from phoenix6 import swerve
 from phoenix6.hardware import TalonFX
@@ -58,10 +60,14 @@ class RobotContainer:
         self._functional_controller = commands2.button.CommandXboxController(1)
 
         self.drivetrain = TunerConstants.create_drivetrain()
-        # self.rotate_motor = TalonFX(15)  # Using CAN ID 15 for the rotate motor
-        # self.rotate_command = RotateCommand(self.rotate_motor, self._functional_controller)
-        # self.coral_outake = CoralOutake(wpilib.Spark(3))
         self.elevator = CommandElevator(TalonFX(13), TalonFX(14))
+        self.climb = Climb(TalonFX(15))
+        self.bottom_wheels = BottomWheels(TalonFX(16))
+        
+        # self.rotate_motor = TalonFX(15)  # Using CAN ID 15 for the rotate motor
+        #self.rotate_command = RotateCommand(self.rotate_motor, self._functional_controller)
+        # self.coral_outake = CoralOutake(wpilib.Spark(3))
+        
 
         # self.autoChooser = AutoBuilder.buildAutoChooser()
         # wpilib.SmartDashboard.putData("Auto Chooser", self.autoChooser)
@@ -120,17 +126,23 @@ class RobotContainer:
             # )
         # )
         self._functional_controller.y().whileTrue(cmd.runEnd(
-            lambda: self.elevator.move(2),
+            lambda: self.elevator.move_motor(2),
             lambda: self.elevator.brake()
         ))
         self._functional_controller.a().whileTrue(cmd.runEnd(
-            lambda: self.elevator.move(-2),
+            lambda: self.elevator.move_motor(-2),
             lambda: self.elevator.brake()
         ))
-        self._functional_controller.b().whileTrue(cmd.run(self.elevator.move(2)).until(
+
+        self._functional_controller.b().whileTrue(self.elevator.move(2).until(
                 lambda: self.elevator.leading_motor.get_position()
-                <= inchesToRotations(MIN_ELEVATOR_HEIGHT)
+                >= inchesToRotations(MAX_ELEVATOR_HEIGHT)
             ))
+        
+        self._functional_controller.rightTrigger().whileTrue(self.bottom_wheels.run(-12))
+        self._functional_controller.leftTrigger().whileTrue(self.bottom_wheels.run(12))
+        self._functional_controller.rightBumper().whileTrue(self.climb.run(2))
+        self._functional_controller.leftBumper().whileTrue(self.climb.run(-2))
 
         #self._functional_controller.y().whileTrue(self.elevator.move_to("LEVEL_3"))
 
@@ -140,7 +152,7 @@ class RobotContainer:
         )
 
         # Removed redundant right trigger binding since it's handled by setDefaultCommand
-        # self.rotate_command.setDefaultCommand(self.rotate_command)
+        # self.rotate_command.setDefaultCommand(self.rotate_command.rotate)
 
         # self._functional_controller.b().onTrue(lambda: self.coral_outake.outake(50))
 

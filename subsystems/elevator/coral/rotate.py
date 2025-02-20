@@ -1,4 +1,4 @@
-from commands2 import Subsystem
+from commands2 import Command, Subsystem, cmd
 from wpilib import XboxController
 from phoenix6.hardware import TalonFX
 from phoenix6 import controls
@@ -11,12 +11,8 @@ class RotateCommand(Subsystem):
         
         self.motor.set_control(controls.StaticBrake())
         
-    def initialize(self) -> None:
         
-        pass
-        
-    def execute(self) -> None:
-        
+    def rotate(self) -> Command:
         
         stick_value = self.controller.getRawAxis(self.axis_id)
         
@@ -25,17 +21,12 @@ class RotateCommand(Subsystem):
         else:
             stick_value = 30 if stick_value > 0 else -30
             
-        self.motor.setVoltage(stick_value)
+        return cmd.runEnd(
+            lambda: self.motor.setVoltage(stick_value),
+            lambda: self.end()
+        )
         
-    def end(self, interrupted: bool) -> None:
         
-        
-        
-
+    def end(self) -> None:
         self.motor.setVoltage(0)
         self.motor.set_control(controls.StaticBrake())
-        
-    def isFinished(self) -> bool:
-        
-        
-        return False
