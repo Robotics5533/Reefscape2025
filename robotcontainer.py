@@ -9,7 +9,7 @@ import commands2.button
 import commands2.cmd
 from commands2 import cmd
 from subsystems.climb.command import Climb
-from subsystems.elevator.command import CommandElevator
+from subsystems.elevator.command import Elevator
 from generated.tuner_constants import TunerConstants
 from subsystems.elevator.coral.bottom_wheels import BottomWheels
 from telemetry import Telemetry
@@ -20,7 +20,9 @@ from wpimath.units import rotationsToRadians
 from subsystems.elevator.coral.rotate import RotateCommand
 from commands2.sysid import SysIdRoutine
 
-from utils.constants import MAX_ELEVATOR_HEIGHT, MIN_ELEVATOR_HEIGHT
+from utils.constants import (MAX_ELEVATOR_HEIGHT, MIN_ELEVATOR_HEIGHT,
+    ELEVATOR_LEADING_MOTOR_ID, ELEVATOR_FOLLOWING_MOTOR_ID,
+    CLIMB_MOTOR_ID, BOTTOM_WHEELS_MOTOR_ID)
 from utils.math import inchesToRotations
 
 class RobotContainer:
@@ -60,9 +62,9 @@ class RobotContainer:
         self._functional_controller = commands2.button.CommandXboxController(1)
 
         self.drivetrain = TunerConstants.create_drivetrain()
-        self.elevator = CommandElevator(TalonFX(13), TalonFX(14))
-        self.climb = Climb(TalonFX(15))
-        self.bottom_wheels = BottomWheels(TalonFX(16))
+        self.elevator = Elevator(TalonFX(ELEVATOR_LEADING_MOTOR_ID), TalonFX(ELEVATOR_FOLLOWING_MOTOR_ID))
+        self.climb = Climb(TalonFX(CLIMB_MOTOR_ID))
+        self.bottom_wheels = BottomWheels(TalonFX(BOTTOM_WHEELS_MOTOR_ID))
         
         # self.rotate_motor = TalonFX(15)  # Using CAN ID 15 for the rotate motor
         #self.rotate_command = RotateCommand(self.rotate_motor, self._functional_controller)
@@ -125,24 +127,39 @@ class RobotContainer:
             #     <= inchesToRotations(MIN_ELEVATOR_HEIGHT)
             # )
         # )
+        # Manual elevator control with Y/A buttons
         self._functional_controller.y().whileTrue(cmd.runEnd(
-            lambda: self.elevator.move_motor(2),
-            lambda: self.elevator.brake()
-        ))
-        self._functional_controller.a().whileTrue(cmd.runEnd(
-            lambda: self.elevator.move_motor(-2),
+            lambda: self.elevator.move_motor(20),
             lambda: self.elevator.brake()
         ))
 
-        self._functional_controller.b().whileTrue(self.elevator.move(2).until(
-                lambda: self.elevator.leading_motor.get_position()
-                >= inchesToRotations(MAX_ELEVATOR_HEIGHT)
-            ))
+        self._functional_controller.a().whileTrue(cmd.runEnd(
+            lambda: self.elevator.move_motor(-20), 
+            lambda: self.elevator.brake()
+        ))
+
+        self._functional_controller.pov(0).whileTrue(self.elevator.move(12, mode=ElevatorMode.POSITION))  # Top - 12 inches
+        self._functional_controller.pov(90).whileTrue(self.elevator.move(16, mode=ElevatorMode.POSITION))  # Right - 16 inches
+        self._functional_controller.pov(180).whileTrue(self.elevator.move(0, mode=ElevatorMode.POSITION))  # Bottom - 0 inches
+        self._functional_controller.pov(270).whileTrue(self.elevator.move(10, mode=ElevatorMode.POSITION))  # Left - 10 inches
         
-        self._functional_controller.rightTrigger().whileTrue(self.bottom_wheels.run(-12))
-        self._functional_controller.leftTrigger().whileTrue(self.bottom_wheels.run(12))
-        self._functional_controller.rightBumper().whileTrue(self.climb.run(2))
-        self._functional_controller.leftBumper().whileTrue(self.climb.run(-2))
+        self._functional_controller.rightTrigger().whileTrue(self.bottom_wheels.run(-100))
+        self._functional_controller.leftTrigger().whileTrue(self.bottom_wheels.run(100))    # Full speed forward
+        # Use parallel command groups to allow climb and drive to run simultaneously
+        self._functional_controller.rightBumper().whileTrue(
+            cmd.parallel(
+                self.climb.run(20),
+                self.drivetrain.getDefaultCommand()
+            )
+        )  # Climb up at 20%
+        
+        self._functional_controller.leftBumper().whileTrue(
+            cmd.parallel(
+                self.climb.run(-20),
+                self.drivetrain.getDefaultCommand()
+            )
+        )  # Climb down at 20%
+
 
         #self._functional_controller.y().whileTrue(self.elevator.move_to("LEVEL_3"))
 
@@ -150,11 +167,6 @@ class RobotContainer:
         self._joystick.leftBumper().onTrue(
             self.drivetrain.runOnce(lambda: self.drivetrain.seed_field_centric())
         )
-
-        # Removed redundant right trigger binding since it's handled by setDefaultCommand
-        # self.rotate_command.setDefaultCommand(self.rotate_command.rotate)
-
-        # self._functional_controller.b().onTrue(lambda: self.coral_outake.outake(50))
 
         self.drivetrain.register_telemetry(
             lambda state: self._logger.telemeterize(state)

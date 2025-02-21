@@ -1,29 +1,29 @@
-from commands2 import Subsystem
+from commands2 import Command, Subsystem, cmd
 from phoenix6.hardware import TalonFX
-from phoenix6 import controls
+from phoenix6 import controls, signals
+from utils.motor_constants import percent_to_voltage, MOTOR_CONFIG
 
-class TopWheelsCommand(Subsystem):
-    def __init__(self, motor: TalonFX, speed: float = 30.0):
+class TopWheels(Subsystem):
+    def __init__(self, motor: TalonFX):
         super().__init__()
         self.motor: TalonFX = motor
-        self.speed = speed
+        self.config = MOTOR_CONFIG["wheels"]
         
+    def run(self, speed_percent: float = 20) -> Command:
+        speed_percent = max(-self.config["max_speed"], min(speed_percent, self.config["max_speed"]))
+        voltage = percent_to_voltage(speed_percent)
         
-    def initialize(self) -> None:
+        return cmd.runEnd(
+            lambda: self.motor.setVoltage(voltage),
+            lambda: self.brake()
+        )
         
-        pass
-        
-    def execute(self) -> None:
-        
-        self.motor.setVoltage(self.speed)
-        
-    def end(self, interrupted: bool) -> None:
-        
+    def brake(self) -> None:
+        """Stop the motor and engage brake mode"""
         self.motor.setVoltage(0)
-        
-    def isFinished(self) -> bool:
-        
-        return False
-    
-    def set_speed(self, speed: float) -> None:
-        self.speed = speed
+        self.motor.setNeutralMode(signals.NeutralModeValue.BRAKE)
+
+    def set_speed(self, speed_percent: float) -> None:
+        """Set the motor speed as a percentage (-100 to 100)"""
+        speed_percent = max(-self.config["max_speed"], min(speed_percent, self.config["max_speed"]))
+        self.motor.setVoltage(percent_to_voltage(speed_percent))
