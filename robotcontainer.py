@@ -100,7 +100,7 @@ class RobotContainer:
         self._joystick.a().whileTrue(self.drivetrain.apply_request(lambda: self._brake))
         
         self._joystick.b().onTrue(cmd.runOnce(lambda: setattr(self, '_max_speed', self._max_speed * 0.25)))
-        self._joystick.b().onFalse(cmd.runOnce(lambda: setattr(self, '_max_speed', TunerConstants.speed_at_12_volts * 0.25)))
+        self._joystick.b().onFalse(cmd.runOnce(lambda: setattr(self, '_max_speed', TunerConstants.speed_at_12_volts)))
         
 
         # (self._functional_controller.y()).whileTrue(

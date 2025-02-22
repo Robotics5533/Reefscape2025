@@ -34,13 +34,13 @@ class Elevator(Subsystem):
         self.config = MOTOR_CONFIG["elevator"]
 
         self.position_controller = PIDController(
-            3.0,  # P gain
-            0.0,  # I gain
-            0.3   # D gain
+            5.0,  # P gain - Increased for stronger position holding
+            0.1,  # I gain - Added to eliminate steady-state error
+            0.5   # D gain - Increased for better damping
         )
         self.position_controller.setTolerance(0.5)
         
-        self.kG = 0.1
+        self.kG = 0.4  # Increased gravity compensation
 
         self.sys_id_routine = SysIdRoutine(
             SysIdRoutine.Config(stepVoltage=3),
