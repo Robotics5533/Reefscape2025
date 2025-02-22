@@ -34,9 +34,9 @@ class Elevator(Subsystem):
         self.config = MOTOR_CONFIG["elevator"]
 
         self.position_controller = PIDController(
-            1.0,  # P gain
+            3.0,  # P gain
             0.0,  # I gain
-            0.1   # D gain
+            0.3   # D gain
         )
         self.position_controller.setTolerance(0.5)
         
@@ -46,6 +46,13 @@ class Elevator(Subsystem):
             SysIdRoutine.Config(stepVoltage=3),
             SysIdRoutine.Mechanism(lambda x: self.move(x, ElevatorMode.MANUAL), self.log, self),
         )
+
+        self.following_motor.set_position(0)
+        self.leading_motor.set_position(0)
+        # 29.841551829730374
+       # -6.197306465878271
+
+        
 
     def move_motor(self, speed_percent: float):
         speed_percent = max(-self.config["max_speed"], min(speed_percent, self.config["max_speed"]))
@@ -88,7 +95,7 @@ class Elevator(Subsystem):
             def is_finished():
                 return self.position_controller.atSetpoint()
                 
-            return cmd.run(execute).until(is_finished).finallyDo(lambda: self.brake())
+            return cmd.run(execute).until(is_finished).finallyDo(lambda interrupted: self.brake())
 
     def brake(self):
         self.leading_motor.setVoltage(0)

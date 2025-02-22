@@ -9,7 +9,7 @@ import commands2.button
 import commands2.cmd
 from commands2 import cmd
 from subsystems.climb.command import Climb
-from subsystems.elevator.command import Elevator
+from subsystems.elevator.command import Elevator, ElevatorMode
 from generated.tuner_constants import TunerConstants
 from subsystems.elevator.coral.bottom_wheels import BottomWheels
 from telemetry import Telemetry
@@ -19,6 +19,7 @@ from wpimath.geometry import Rotation2d
 from wpimath.units import rotationsToRadians
 from subsystems.elevator.coral.rotate import RotateCommand
 from commands2.sysid import SysIdRoutine
+from autonomous.forward_auto import create_forward_auto
 
 from utils.constants import (MAX_ELEVATOR_HEIGHT, MIN_ELEVATOR_HEIGHT,
     ELEVATOR_LEADING_MOTOR_ID, ELEVATOR_FOLLOWING_MOTOR_ID,
@@ -73,9 +74,9 @@ class RobotContainer:
 
         # self.autoChooser = AutoBuilder.buildAutoChooser()
         # wpilib.SmartDashboard.putData("Auto Chooser", self.autoChooser)
-
         # Configure the button bindings
         self.configureButtonBindings()
+        self.drivetrain.runOnce(lambda: self.drivetrain.seed_field_centric())
 
     def configureButtonBindings(self) -> None:
         """
@@ -83,7 +84,7 @@ class RobotContainer:
         instantiating a :GenericHID or one of its subclasses (Joystick or XboxController),
         and then passing it to a JoystickButton.
         """
-
+        
         # Note that X is defined as forward according to WPILib convention,
         # and Y is defined as to the left according to WPILib convention.
         self.drivetrain.setDefaultCommand(
@@ -97,13 +98,10 @@ class RobotContainer:
 
         # Simplified button bindings for better performance
         self._joystick.a().whileTrue(self.drivetrain.apply_request(lambda: self._brake))
-        self._joystick.b().whileTrue(
-            self.drivetrain.apply_request(
-                lambda: self._point.with_module_direction(
-                    Rotation2d(-self._joystick.getLeftY(), -self._joystick.getLeftX())
-                )
-            )
-        )
+        
+        self._joystick.b().onTrue(cmd.runOnce(lambda: setattr(self, '_max_speed', self._max_speed * 0.25)))
+        self._joystick.b().onFalse(cmd.runOnce(lambda: setattr(self, '_max_speed', TunerConstants.speed_at_12_volts * 0.25)))
+        
 
         # (self._functional_controller.y()).whileTrue(
         #     self.elevator.sys_id_dynamic(SysIdRoutine.Direction.kForward)
@@ -138,31 +136,29 @@ class RobotContainer:
             lambda: self.elevator.brake()
         ))
 
-        self._functional_controller.pov(0).whileTrue(self.elevator.move(12, mode=ElevatorMode.POSITION))  # Top - 12 inches
-        self._functional_controller.pov(90).whileTrue(self.elevator.move(16, mode=ElevatorMode.POSITION))  # Right - 16 inches
-        self._functional_controller.pov(180).whileTrue(self.elevator.move(0, mode=ElevatorMode.POSITION))  # Bottom - 0 inches
-        self._functional_controller.pov(270).whileTrue(self.elevator.move(10, mode=ElevatorMode.POSITION))  # Left - 10 inches
-        
-        self._functional_controller.rightTrigger().whileTrue(self.bottom_wheels.run(-100))
-        self._functional_controller.leftTrigger().whileTrue(self.bottom_wheels.run(100))    # Full speed forward
+        self._functional_controller.pov(0).whileTrue(self.elevator.move(12, ElevatorMode.POSITION))  # Top - 12 inches
+        self._functional_controller.pov(90).whileTrue(self.elevator.move(14, ElevatorMode.POSITION))  # Right - 16 inches
+        self._functional_controller.pov(180).whileTrue(self.elevator.move(0, ElevatorMode.POSITION))  # Bottom - 0 inches
+        self._functional_controller.pov(270).whileTrue(self.elevator.move(10, ElevatorMode.POSITION))  # Left - 10 inches
+
+        self._functional_controller.rightTrigger().whileTrue(cmd.parallel(
+                self.bottom_wheels.run(-100),
+                cmd.run(lambda: None)
+            ))
+        self._functional_controller.leftTrigger().whileTrue(cmd.parallel(
+                self.bottom_wheels.run(100),
+                cmd.run(lambda: None)
+            ))    # Full speed forward
         # Use parallel command groups to allow climb and drive to run simultaneously
         self._functional_controller.rightBumper().whileTrue(
-            cmd.parallel(
-                self.climb.run(20),
-                self.drivetrain.getDefaultCommand()
-            )
-        )  # Climb up at 20%
+            self.climb.run(25)
+        )  # Climb up at 25%
         
         self._functional_controller.leftBumper().whileTrue(
-            cmd.parallel(
-                self.climb.run(-20),
-                self.drivetrain.getDefaultCommand()
-            )
-        )  # Climb down at 20%
-
+            self.climb.run(-25)
+        )  # Climb down at 25%
 
         #self._functional_controller.y().whileTrue(self.elevator.move_to("LEVEL_3"))
-
         # reset the field-centric heading on left bumper press
         self._joystick.leftBumper().onTrue(
             self.drivetrain.runOnce(lambda: self.drivetrain.seed_field_centric())
@@ -173,4 +169,5 @@ class RobotContainer:
         )
 
     def getAutonomousCommand(self) -> commands2.Command:
-        return commands2.cmd.print_("No autonomous command configured")
+        return create_forward_auto(self.drivetrain)
+        #return commands2.cmd.print_("No autonomous command configured")
