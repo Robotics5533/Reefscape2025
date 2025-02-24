@@ -110,27 +110,6 @@ class Elevator(Subsystem):
 
     def brake(self):
         self.leading_motor.setVoltage(0)
-        self.leading_motor.setNeutralMode(signals.NeutralModeValue.BRAKE)
         self.following_motor.setVoltage(0)
+        self.leading_motor.setNeutralMode(signals.NeutralModeValue.BRAKE)
         self.following_motor.setNeutralMode(signals.NeutralModeValue.BRAKE)
-
-    def log(self, sys_id_routine: SysIdRoutineLog) -> None:
-        sys_id_routine.motor("leading_motor").voltage(
-            self.leading_motor.get_motor_voltage().value
-            * RobotController.getBatteryVoltage()
-        ).position(self.leading_motor.get_position().value).velocity(
-            self.leading_motor.get_velocity().value
-        )
-
-        sys_id_routine.motor("following_motor").voltage(
-            self.following_motor.get_motor_voltage().value
-            * RobotController.getBatteryVoltage()
-        ).position(self.following_motor.get_position().value).velocity(
-            self.following_motor.get_velocity().value
-        )
-
-    def sys_id_quasistatic(self, direction: SysIdRoutine.Direction):
-        return self.sys_id_routine.quasistatic(direction)
-
-    def sys_id_dynamic(self, direction: SysIdRoutine.Direction):
-        return self.sys_id_routine.dynamic(direction)
