@@ -1,8 +1,9 @@
 from ntcore import NetworkTableInstance
 from phoenix6 import SignalLogger, swerve, units
-from wpilib import Color, Color8Bit, Mechanism2d, MechanismLigament2d, SmartDashboard
+from wpilib import Color, Color8Bit, Mechanism2d, MechanismLigament2d, SmartDashboard, Field2d
 from wpimath.geometry import Pose2d
 from wpimath.kinematics import ChassisSpeeds, SwerveModulePosition, SwerveModuleState
+
 
 class Telemetry:
     def __init__(self, max_speed: units.meters_per_second):
@@ -32,7 +33,9 @@ class Telemetry:
         self._table = self._inst.getTable("Field")
         self._field = self._table.getDoubleArrayTopic("Robot").publish()
         self._field_type = self._table.getStringTopic(".type").publish()
-        SmartDashboard.putData("Field", self._table)
+        
+        self.field = Field2d()
+        SmartDashboard.putData("Field", self.field)
 
         # Mechanisms to represent the swerve module states
         self._module_mechanisms: list[Mechanism2d] = [

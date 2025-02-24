@@ -12,7 +12,7 @@ import typing
 from robotcontainer import RobotContainer
 
 
-class MyRobot(commands2.TimedCommandRobot):
+class Nixon(commands2.TimedCommandRobot):
     """
     Command v2 robots are encouraged to inherit from TimedCommandRobot, which
     has an implementation of robotPeriodic which runs the scheduler for you
