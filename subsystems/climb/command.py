@@ -9,7 +9,7 @@ class Climb(Subsystem):
         self.motor: TalonFX = motor
         self.config = MOTOR_CONFIG["climb"]
         
-    def run(self, speed_percent: float = 16.67) -> Command:
+    def run(self, speed_percent: float = 20) -> Command:
         # Clamp speed to configured limits
         speed_percent = max(-self.config["max_speed"], min(speed_percent, self.config["max_speed"]))
         voltage = percent_to_voltage(speed_percent)

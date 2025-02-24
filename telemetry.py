@@ -74,43 +74,46 @@ class Telemetry:
     def telemeterize(self, state: swerve.SwerveDrivetrain.SwerveDriveState):
         """
         Accept the swerve drive state and telemeterize it to SmartDashboard and SignalLogger.
+        Optimized for thread safety and performance.
         """
-        # Telemeterize the swerve drive state
-        self._drive_pose.set(state.pose)
-        self._drive_speeds.set(state.speeds)
-        self._drive_module_states.set(state.module_states)
-        self._drive_module_targets.set(state.module_targets)
-        self._drive_module_positions.set(state.module_positions)
-        self._drive_timestamp.set(state.timestamp)
-        self._drive_odometry_frequency.set(1.0 / state.odometry_period)
+        try:
+            # Prepare all data arrays first to minimize time spent in critical sections
+            pose_array = [state.pose.x, state.pose.y, state.pose.rotation().degrees()]
+            module_states_array = []
+            module_targets_array = []
+            for i in range(4):
+                module_states_array.extend([state.module_states[i].angle.radians(), state.module_states[i].speed])
+                module_targets_array.extend([state.module_targets[i].angle.radians(), state.module_states[i].speed])
 
-        # Also write to log file
-        pose_array = [state.pose.x, state.pose.y, state.pose.rotation().degrees()]
-        module_states_array = []
-        module_targets_array = []
-        for i in range(4):
-            module_states_array.append(state.module_states[i].angle.radians())
-            module_states_array.append(state.module_states[i].speed)
-            module_targets_array.append(state.module_targets[i].angle.radians())
-            module_targets_array.append(state.module_targets[i].speed)
+            # Batch update network tables
+            self._drive_pose.set(state.pose)
+            self._drive_speeds.set(state.speeds)
+            self._drive_module_states.set(state.module_states)
+            self._drive_module_targets.set(state.module_targets)
+            self._drive_module_positions.set(state.module_positions)
+            self._drive_timestamp.set(state.timestamp)
+            self._drive_odometry_frequency.set(1.0 / state.odometry_period if state.odometry_period > 0 else 0.0)
 
-        SignalLogger.write_double_array("DriveState/Pose", pose_array)
-        SignalLogger.write_double_array("DriveState/ModuleStates", module_states_array)
-        SignalLogger.write_double_array(
-            "DriveState/ModuleTargets", module_targets_array
-        )
-        SignalLogger.write_double(
-            "DriveState/OdometryPeriod", state.odometry_period, "seconds"
-        )
+            # Batch update signal logger
+            SignalLogger.write_double_array("DriveState/Pose", pose_array)
+            SignalLogger.write_double_array("DriveState/ModuleStates", module_states_array)
+            SignalLogger.write_double_array("DriveState/ModuleTargets", module_targets_array)
+            SignalLogger.write_double("DriveState/OdometryPeriod", state.odometry_period, "seconds")
 
-        # Telemeterize the pose to a Field2d
-        self._field_type_pub.set("Field2d")
-        self._field_pub.set(pose_array)
+            # Update field visualization
+            self._field_type_pub.set("Field2d")
+            self._field_pub.set(pose_array)
 
-        # Telemeterize the module states to a Mechanism2d
-        for i, module_state in enumerate(state.module_states):
-            self._module_speeds[i].setAngle(module_state.angle.degrees())
-            self._module_directions[i].setAngle(module_state.angle.degrees())
-            self._module_speeds[i].setLength(module_state.speed / (2 * self._max_speed))
+            # Update module visualizations
+            for i, module_state in enumerate(state.module_states):
+                angle_deg = module_state.angle.degrees()
+                speed_normalized = module_state.speed / (2 * self._max_speed)
+                self._module_speeds[i].setAngle(angle_deg)
+                self._module_directions[i].setAngle(angle_deg)
+                self._module_speeds[i].setLength(speed_normalized)
+                SmartDashboard.putData(f"Module {i}", self._module_mechanisms[i])
 
-            SmartDashboard.putData(f"Module {i}", self._module_mechanisms[i])
+        except Exception as e:
+            # Log any errors but don't crash
+            print(f"Telemetry error: {e}")
+            pass

@@ -6,8 +6,9 @@ from commands2.sysid import SysIdRoutine
 from wpilib.sysid import SysIdRoutineLog
 from wpilib import RobotController
 from wpimath.controller import PIDController
-from utils.constants import ELEVATOR_LEVELS
+from utils.constants import ELEVATOR_LEVELS, single_rotation_inches
 from utils.math import inchesToRotations
+from wpilib import SmartDashboard
 from utils.motor_constants import percent_to_voltage, MOTOR_CONFIG, voltage_to_percent
 
 class ElevatorPositions(Enum):
@@ -33,32 +34,41 @@ class Elevator(Subsystem):
         self.following_motor = following_motor
         self.config = MOTOR_CONFIG["elevator"]
 
+        # Zero both motors before any movement
+        self.leading_motor.set_position(0)
+        self.following_motor.set_position(0)
+
         self.position_controller = PIDController(
-            5.0,  # P gain - Increased for stronger position holding
-            0.1,  # I gain - Added to eliminate steady-state error
-            0.5   # D gain - Increased for better damping
+            0.5,  # P gain - Increased for stronger position holding, 0.4375
+            0.01,  # I gain - Added to eliminate steady-state error
+            0  # D gain - Increased for better damping
         )
+        self.position_controller.setIZone(0.125)
         self.position_controller.setTolerance(0.5)
         
-        self.kG = 0.4  # Increased gravity compensation
+        self.kG = 0.1  # Increased gravity compensation
 
         self.sys_id_routine = SysIdRoutine(
             SysIdRoutine.Config(stepVoltage=3),
             SysIdRoutine.Mechanism(lambda x: self.move(x, ElevatorMode.MANUAL), self.log, self),
         )
 
-        self.following_motor.set_position(0)
-        self.leading_motor.set_position(0)
-        # 29.841551829730374
-       # -6.197306465878271
+        self.periodic()
 
-        
+    def periodic(self):
+        leading_pos = self.leading_motor.get_position().value
+        following_pos = self.following_motor.get_position().value
+        SmartDashboard.putNumber("Elevator/Leading Motor Position", leading_pos)
+        SmartDashboard.putNumber("Elevator/Following Motor Position", following_pos)
+        SmartDashboard.putNumber("Elevator/Leading Motor Position(in)", leading_pos * single_rotation_inches)
+        SmartDashboard.putNumber("Elevator/Following Motor Position(in)", following_pos * single_rotation_inches)
 
     def move_motor(self, speed_percent: float):
         speed_percent = max(-self.config["max_speed"], min(speed_percent, self.config["max_speed"]))
         voltage = percent_to_voltage(speed_percent)
         self.leading_motor.setVoltage(voltage)
         self.following_motor.setVoltage(-voltage)
+        self.periodic()
 
     def move(self, value: float | str, mode: ElevatorMode = ElevatorMode.MANUAL) -> Command:
         """Unified movement function that supports both manual and position-based control
@@ -88,11 +98,12 @@ class Elevator(Subsystem):
                     inchesToRotations(target_position)
                 )
                 
-                output = pid_output + self.kG
+                output = pid_output # + self.kG
                 
                 self.move_motor(voltage_to_percent(output))
                 
             def is_finished():
+                self.periodic()
                 return self.position_controller.atSetpoint()
                 
             return cmd.run(execute).until(is_finished).finallyDo(lambda interrupted: self.brake())

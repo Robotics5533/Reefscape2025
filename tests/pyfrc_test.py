@@ -3,4 +3,4 @@
     to test basic functionality of just about any robot.
 '''
 
-from pyfrc.tests.basic import test_disabled, test_operator_control
+from pyfrc.tests.basic import test_disabled

@@ -1,32 +1,25 @@
 from commands2 import Command, Subsystem, cmd
 from wpilib import XboxController
 from phoenix6.hardware import TalonFX
-from phoenix6 import controls
+from phoenix6 import controls, signals
+from utils.motor_constants import percent_to_voltage
 
 class RotateCommand(Subsystem):
-    def __init__(self, motor: TalonFX, controller: XboxController, axis_id: int = XboxController.Axis.kRightY):
+    def __init__(self, motor: TalonFX):
+        super().__init__()
         self.motor: TalonFX = motor
-        self.controller = controller
-        self.axis_id = axis_id
+        self.motor.setNeutralMode(signals.NeutralModeValue.BRAKE)
         
-        self.motor.set_control(controls.StaticBrake())
-        
-        
-    def rotate(self) -> Command:
-        
-        stick_value = self.controller.getRawAxis(self.axis_id)
-        
-        if abs(stick_value) < 0.1:
-            stick_value = 0
-        else:
-            stick_value = 30 if stick_value > 0 else -30
+    def rotate(self, stick_value: int) -> None:
+        normalized_value = stick_value / 100.0
+        if abs(normalized_value) < 0.1:
+            self.brake()
+            return
             
-        return cmd.runEnd(
-            lambda: self.motor.setVoltage(stick_value),
-            lambda: self.end()
-        )
+        motor_speed = 20 * normalized_value
+        self.motor.setVoltage(percent_to_voltage(motor_speed))
+        self.motor.setNeutralMode(signals.NeutralModeValue.COAST)
         
-        
-    def end(self) -> None:
+    def brake(self) -> None:
         self.motor.setVoltage(0)
-        self.motor.set_control(controls.StaticBrake())
+        self.motor.setNeutralMode(signals.NeutralModeValue.BRAKE)
