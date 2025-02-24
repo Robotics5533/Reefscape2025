@@ -12,10 +12,10 @@ from wpilib import SmartDashboard
 from utils.motor_constants import percent_to_voltage, MOTOR_CONFIG, voltage_to_percent
 
 class ElevatorPositions(Enum):
-    Level1 = 16
-    Level2 = 31.875
-    Level3 = 47.625
-    Level4 = 72
+    Level1 = 0
+    Level2 = 10
+    Level3 = 18
+    Level4 = 24
 
 class ElevatorMode(Enum):
     MANUAL = "manual" 
@@ -46,7 +46,7 @@ class Elevator(Subsystem):
         self.position_controller.setIZone(0.125)
         self.position_controller.setTolerance(0.5)
         
-        self.kG = 0.1  # Increased gravity compensation
+        self.kG = 0.2  # Increased gravity compensation
 
         self.sys_id_routine = SysIdRoutine(
             SysIdRoutine.Config(stepVoltage=3),
@@ -98,7 +98,7 @@ class Elevator(Subsystem):
                     inchesToRotations(target_position)
                 )
                 
-                output = pid_output # + self.kG
+                output = pid_output + self.kG
                 
                 self.move_motor(voltage_to_percent(output))
                 

@@ -9,24 +9,19 @@ import commands2.button
 import commands2.cmd
 from commands2 import cmd
 from wpilib import SmartDashboard, XboxController
+from autonomous.autons.forward import create_forward_auto
 from subsystems.climb.command import Climb
-from subsystems.elevator.command import Elevator, ElevatorMode
+from subsystems.elevator.command import Elevator, ElevatorMode, ElevatorPositions
 from generated.tuner_constants import TunerConstants
 from subsystems.elevator.coral.wheels import Wheels
 from telemetry import Telemetry
 from phoenix6 import swerve
 from phoenix6.hardware import TalonFX
-from wpimath.geometry import Rotation2d
 from wpimath.units import rotationsToRadians
 from subsystems.elevator.coral.rotate import RotateCommand
-from commands2.sysid import SysIdRoutine
-from autonomous.forward_auto import create_forward_auto
 
-from utils.constants import (MAX_ELEVATOR_HEIGHT, MIN_ELEVATOR_HEIGHT,
-    ELEVATOR_LEADING_MOTOR_ID, ELEVATOR_FOLLOWING_MOTOR_ID,
-    CLIMB_MOTOR_ID, BOTTOM_WHEELS_MOTOR_ID, ROTATE_INTAKE_MOTOR_ID, TOP_WHEELS_MOTOR_ID)
-from utils.math import inchesToRotations
-
+from utils.constants import (ELEVATOR_LEADING_MOTOR_ID, ELEVATOR_FOLLOWING_MOTOR_ID,
+    CLIMB_MOTOR_ID, BOTTOM_WHEELS_MOTOR_ID, ROTATE_INTAKE_MOTOR_ID, TOP_WHEELS_MOTOR_ID, single_rotation_inches)
 class RobotContainer:
     """
     This class is where the bulk of the robot should be declared. Since Command-based is a
@@ -56,8 +51,8 @@ class RobotContainer:
 
         SmartDashboard.putNumber("Elevator/Leading Motor Position", self.leading_motor.get_position().value)
         SmartDashboard.putNumber("Elevator/Following Motor Position", self.following_motor.get_position().value)
-        SmartDashboard.putNumber("Elevator/Leading Motor Position(in)", self.leading_motor.get_position().value * 0.36)
-        SmartDashboard.putNumber("Elevator/Following Motor Position(in)", self.following_motor.get_position().value * 0.36)
+        SmartDashboard.putNumber("Elevator/Leading Motor Position(in)", self.leading_motor.get_position().value * single_rotation_inches)
+        SmartDashboard.putNumber("Elevator/Following Motor Position(in)", self.following_motor.get_position().value * single_rotation_inches)
         
         # Configure all button bindings
         self.configureButtonBindings()
@@ -121,10 +116,10 @@ class RobotContainer:
         ))
         
         # Position-based elevator controls
-        self._functional_controller.pov(0).whileTrue(self.elevator.move(18, ElevatorMode.POSITION))
-        self._functional_controller.pov(90).whileTrue(self.elevator.move(24, ElevatorMode.POSITION))
-        self._functional_controller.pov(180).whileTrue(self.elevator.move(0, ElevatorMode.POSITION))
-        self._functional_controller.pov(270).whileTrue(self.elevator.move(10, ElevatorMode.POSITION))
+        self._functional_controller.pov(0).whileTrue(self.elevator.move(ElevatorPositions.Level2, ElevatorMode.POSITION))
+        self._functional_controller.pov(90).whileTrue(self.elevator.move(ElevatorPositions.Level4, ElevatorMode.POSITION))
+        self._functional_controller.pov(180).whileTrue(self.elevator.move(ElevatorPositions.Level1, ElevatorMode.POSITION))
+        self._functional_controller.pov(270).whileTrue(self.elevator.move(ElevatorPositions.Level3, ElevatorMode.POSITION))
 
     def _configure_wheels_controls(self) -> None:
         # Intake/outtake controls

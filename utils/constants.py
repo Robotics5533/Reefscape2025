@@ -9,7 +9,7 @@ elevator_gear_radius = 1
 elevator_sprocket = 24
 elevator_sprocket_diameter = 2.75  # inches
 single_rotation = (elevator_gear_radius / elevator_gearbox_radius) * (pi * elevator_sprocket_diameter)
-single_rotation_inches = 0.345#(elevator_gear_radius / elevator_gearbox_radius) * (pi * elevator_sprocket_diameter)#0.365
+single_rotation_inches = (elevator_gear_radius / elevator_gearbox_radius) * (pi * elevator_sprocket_diameter)
 # Elevator position constants
 ELEVATOR_LEVELS = ["LEVEL_1", "LEVEL_2", "LEVEL_3", "LEVEL_4"]
 MAX_ELEVATOR_HEIGHT = 12  # inches

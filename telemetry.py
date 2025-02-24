@@ -29,9 +29,10 @@ class Telemetry:
         self._drive_odometry_frequency = self._drive_state_table.getDoubleTopic("OdometryFrequency").publish()
 
         # Robot pose for field positioning
-        self._table = self._inst.getTable("Pose")
-        self._field_pub = self._table.getDoubleArrayTopic("robotPose").publish()
-        self._field_type_pub = self._table.getStringTopic(".type").publish()
+        self._table = self._inst.getTable("Field")
+        self._field = self._table.getDoubleArrayTopic("Robot").publish()
+        self._field_type = self._table.getStringTopic(".type").publish()
+        SmartDashboard.putData("Field", self._table)
 
         # Mechanisms to represent the swerve module states
         self._module_mechanisms: list[Mechanism2d] = [
@@ -100,9 +101,14 @@ class Telemetry:
             SignalLogger.write_double_array("DriveState/ModuleTargets", module_targets_array)
             SignalLogger.write_double("DriveState/OdometryPeriod", state.odometry_period, "seconds")
 
-            # Update field visualization
-            self._field_type_pub.set("Field2d")
-            self._field_pub.set(pose_array)
+            # Update field visualization with robot position
+            self._field_type.set("Field2d")
+            self._field.set([state.pose.x, state.pose.y, state.pose.rotation().radians()])
+            
+            # Update SmartDashboard with field position data
+            SmartDashboard.putNumber("Field/Robot X", state.pose.x)
+            SmartDashboard.putNumber("Field/Robot Y", state.pose.y)
+            SmartDashboard.putNumber("Field/Robot Rotation", state.pose.rotation().degrees())
 
             # Update module visualizations
             for i, module_state in enumerate(state.module_states):
