@@ -1,7 +1,6 @@
-from commands2 import Command, Subsystem, cmd
-from wpilib import XboxController
+from commands2 import Subsystem
 from phoenix6.hardware import TalonFX
-from phoenix6 import controls, signals
+from phoenix6 import signals
 from utils.motor_constants import percent_to_voltage
 
 class RotateCommand(Subsystem):
@@ -11,14 +10,13 @@ class RotateCommand(Subsystem):
         self.motor.setNeutralMode(signals.NeutralModeValue.BRAKE)
         
     def rotate(self, stick_value: int) -> None:
-        normalized_value = stick_value / 100.0
-        if abs(normalized_value) < 0.1:
+        if abs(stick_value) < 0.1:
             self.brake()
             return
             
-        motor_speed = 20 * normalized_value
-        self.motor.setVoltage(percent_to_voltage(motor_speed))
+        motor_speed = 20 * stick_value
         self.motor.setNeutralMode(signals.NeutralModeValue.COAST)
+        self.motor.setVoltage(percent_to_voltage(motor_speed))
         
     def brake(self) -> None:
         self.motor.setVoltage(0)

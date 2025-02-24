@@ -141,7 +141,7 @@ class RobotContainer:
         self.rotate_command.setDefaultCommand(
             cmd.run(
                 lambda: self.rotate_command.rotate(
-                    int(-self._functional_controller.getRawAxis(XboxController.Axis.kRightY) * 100)
+                    int(-self._functional_controller.getRawAxis(XboxController.Axis.kRightY))
                 ),
                 self.rotate_command
             )
