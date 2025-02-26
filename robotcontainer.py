@@ -21,7 +21,7 @@ from wpimath.units import rotationsToRadians
 from subsystems.elevator.coral.rotate import RotateCommand
 
 from utils.constants import (ELEVATOR_LEADING_MOTOR_ID, ELEVATOR_FOLLOWING_MOTOR_ID,
-    CLIMB_MOTOR_ID, BOTTOM_WHEELS_MOTOR_ID, ROTATE_INTAKE_MOTOR_ID, TOP_WHEELS_MOTOR_ID, single_rotation_inches)
+    CLIMB_MOTOR_ID, ROTATE_INTAKE_MOTOR_ID, TOP_WHEELS_MOTOR_ID, single_rotation_inches)
 class RobotContainer:
     """
     This class is where the bulk of the robot should be declared. Since Command-based is a
@@ -46,7 +46,7 @@ class RobotContainer:
         self.following_motor.set_position(0)
         self.elevator = Elevator(self.leading_motor, self.following_motor)
         self.climb = Climb(TalonFX(CLIMB_MOTOR_ID))
-        self.wheels = Wheels(TalonFX(TOP_WHEELS_MOTOR_ID), TalonFX(BOTTOM_WHEELS_MOTOR_ID))
+        self.wheels = Wheels(TalonFX(TOP_WHEELS_MOTOR_ID))
         self.rotate_command = RotateCommand(TalonFX(ROTATE_INTAKE_MOTOR_ID))
 
         SmartDashboard.putNumber("Elevator/Leading Motor Position", self.leading_motor.get_position().value)
@@ -114,21 +114,29 @@ class RobotContainer:
             lambda: self.elevator.move_motor(-20),
             lambda: self.elevator.brake()
         ))
+        # self.elevator.setDefaultCommand(
+        #     cmd.run(
+        #         lambda: self.elevator.move_test(
+        #             int(self._functional_controller.getRawAxis(XboxController.Axis.kLeftY))
+        #         ),
+        #         self.elevator
+        #     )
+        # )
         
         # Position-based elevator controls
-        self._functional_controller.pov(0).whileTrue(self.elevator.move(ElevatorPositions.Level2, ElevatorMode.POSITION))
-        self._functional_controller.pov(90).whileTrue(self.elevator.move(ElevatorPositions.Level4, ElevatorMode.POSITION))
-        self._functional_controller.pov(180).whileTrue(self.elevator.move(ElevatorPositions.Level1, ElevatorMode.POSITION))
-        self._functional_controller.pov(270).whileTrue(self.elevator.move(ElevatorPositions.Level3, ElevatorMode.POSITION))
+        self._functional_controller.pov(0).whileTrue(self.elevator.move(ElevatorPositions.Level3, ElevatorMode.POSITION)) #top
+        self._functional_controller.pov(90).whileTrue(self.elevator.move(ElevatorPositions.Level4, ElevatorMode.POSITION)) #right
+        self._functional_controller.pov(180).whileTrue(self.elevator.move(ElevatorPositions.Level1, ElevatorMode.POSITION)) #bottom
+        self._functional_controller.pov(270).whileTrue(self.elevator.move(ElevatorPositions.Level2, ElevatorMode.POSITION)) #left
 
     def _configure_wheels_controls(self) -> None:
         # Intake/outtake controls
         self._functional_controller.rightTrigger().whileTrue(cmd.parallel(
-            self.wheels.run(-100),
+            self.wheels.run(50),
             cmd.run(lambda: None)
         ))
         self._functional_controller.leftTrigger().whileTrue(cmd.parallel(
-            self.wheels.run(100),
+            self.wheels.run(-50),
             cmd.run(lambda: None)
         ))
     def _configure_climb_controls(self) -> None:
@@ -141,7 +149,7 @@ class RobotContainer:
         self.rotate_command.setDefaultCommand(
             cmd.run(
                 lambda: self.rotate_command.rotate(
-                    int(-self._functional_controller.getRawAxis(XboxController.Axis.kRightY))
+                    int(self._functional_controller.getRawAxis(XboxController.Axis.kRightY))
                 ),
                 self.rotate_command
             )

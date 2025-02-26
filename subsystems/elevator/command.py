@@ -11,7 +11,7 @@ from utils.math import inchesToRotations
 from wpilib import SmartDashboard
 from utils.motor_constants import percent_to_voltage, MOTOR_CONFIG, voltage_to_percent
 
-class ElevatorPositions(Enum):
+class ElevatorPositions():
     Level1 = 0
     Level2 = 10
     Level3 = 18
@@ -46,12 +46,9 @@ class Elevator(Subsystem):
         self.position_controller.setIZone(0.125)
         self.position_controller.setTolerance(0.5)
         
-        self.kG = 0.2  # Increased gravity compensation
-
-        self.sys_id_routine = SysIdRoutine(
-            SysIdRoutine.Config(stepVoltage=3),
-            SysIdRoutine.Mechanism(lambda x: self.move(x, ElevatorMode.MANUAL), self.log, self),
-        )
+        # Constants for physics-based compensation
+        self.kG = 0.4  # Gravity compensation - Counteracts the weight of the elevator
+        self.kS = 0.1  # Static friction compensation - Overcomes motor and mechanism friction
 
         self.periodic()
 
@@ -69,6 +66,12 @@ class Elevator(Subsystem):
         self.leading_motor.setVoltage(voltage)
         self.following_motor.setVoltage(-voltage)
         self.periodic()
+    
+    def move_test(self, speed_percent:float):
+        voltage = percent_to_voltage(speed_percent) * 5
+        self.leading_motor.setVoltage(voltage)
+        self.following_motor.setVoltage(-voltage)
+        SmartDashboard.putNumber("Elevator/Raw Axis", voltage)
 
     def move(self, value: float | str, mode: ElevatorMode = ElevatorMode.MANUAL) -> Command:
         """Unified movement function that supports both manual and position-based control
@@ -98,7 +101,13 @@ class Elevator(Subsystem):
                     inchesToRotations(target_position)
                 )
                 
-                output = pid_output + self.kG
+                # Apply physics-based compensation:
+                # 1. kG: Counteracts gravity (constant force upward)
+                # 2. kS: Overcomes static friction (applies in direction of motion)
+                # 3. PID output: Corrects position error
+                gravity_comp = self.kG  # Always apply upward force to counter gravity
+                static_comp = self.kS * (1 if pid_output > 0 else -1)  # Apply in direction of desired motion
+                output = pid_output + gravity_comp + (static_comp)
                 
                 self.move_motor(voltage_to_percent(output))
                 
@@ -113,3 +122,16 @@ class Elevator(Subsystem):
         self.following_motor.setVoltage(0)
         self.leading_motor.setNeutralMode(signals.NeutralModeValue.BRAKE)
         self.following_motor.setNeutralMode(signals.NeutralModeValue.BRAKE)
+
+
+"""
+The output that *almost* allows an elevator to move upwards is Kg + Ks, and the output that *almost* allows it to move down is Kg - Ks. Slowly increase output until the carriage begins to move upwards (output up), and then decrease output until the carriage begins to move down (output down).
+Kg = (output up + output down) / 2
+
+Ks = (output up - output down) / 2
+"""
+
+"""
+Increase voltage from 0 until it goes up, and then just under that = output up
+Increase voltage from 0 (starting from up) until it stays in place instead of falling down = output down
+"""
