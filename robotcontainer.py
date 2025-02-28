@@ -19,6 +19,7 @@ from phoenix6 import swerve
 from phoenix6.hardware import TalonFX
 from wpimath.units import rotationsToRadians
 from subsystems.elevator.coral.rotate import RotateCommand
+from subsystems.vision.align import LimelightAlign
 
 from utils.constants import (ELEVATOR_LEADING_MOTOR_ID, ELEVATOR_FOLLOWING_MOTOR_ID,
     CLIMB_MOTOR_ID, ROTATE_INTAKE_MOTOR_ID, TOP_WHEELS_MOTOR_ID, single_rotation_inches)
@@ -40,19 +41,19 @@ class RobotContainer:
         
         # Initialize subsystems
         self.drivetrain = TunerConstants.create_drivetrain()
+        
+        # Initialize elevator motors and subsystem
         self.leading_motor = TalonFX(ELEVATOR_LEADING_MOTOR_ID)
         self.following_motor = TalonFX(ELEVATOR_FOLLOWING_MOTOR_ID)
         self.leading_motor.set_position(0)
         self.following_motor.set_position(0)
         self.elevator = Elevator(self.leading_motor, self.following_motor)
+        
+        # Initialize other subsystems
         self.climb = Climb(TalonFX(CLIMB_MOTOR_ID))
         self.wheels = Wheels(TalonFX(TOP_WHEELS_MOTOR_ID))
         self.rotate_command = RotateCommand(TalonFX(ROTATE_INTAKE_MOTOR_ID))
-
-        SmartDashboard.putNumber("Elevator/Leading Motor Position", self.leading_motor.get_position().value)
-        SmartDashboard.putNumber("Elevator/Following Motor Position", self.following_motor.get_position().value)
-        SmartDashboard.putNumber("Elevator/Leading Motor Position(in)", self.leading_motor.get_position().value * single_rotation_inches)
-        SmartDashboard.putNumber("Elevator/Following Motor Position(in)", self.following_motor.get_position().value * single_rotation_inches)
+        self.limelight_align = LimelightAlign(self.drivetrain)
         
         # Configure all button bindings
         self.configureButtonBindings()
@@ -92,9 +93,13 @@ class RobotContainer:
         # Simplified button bindings for better performance
         self._joystick.a().whileTrue(self.drivetrain.apply_request(lambda: self._brake))
         
-        self._joystick.b().onTrue(cmd.runOnce(lambda: setattr(self, '_max_speed', self._max_speed * 0.25)))
-        self._joystick.b().onFalse(cmd.runOnce(lambda: setattr(self, '_max_speed', TunerConstants.speed_at_12_volts)))
+        # Speed control - slow mode when B is held
+        self._joystick.b().onTrue(cmd.runOnce(lambda: setattr(self, '_max_speed', TunerConstants.speed_at_12_volts * 0.25)))
+        self._joystick.b().onFalse(cmd.runOnce(lambda: setattr(self, '_max_speed', TunerConstants.speed_at_12_volts * 0.5)))
         
+        # AprilTag alignment when left bumper is pressed
+        self._joystick.rightBumper().whileTrue(self.limelight_align.align_to_target())
+
         # Reset field-centric heading
         self._joystick.leftBumper().onTrue(
         self.drivetrain.runOnce(lambda: self.drivetrain.seed_field_centric())
@@ -114,31 +119,18 @@ class RobotContainer:
             lambda: self.elevator.move_motor(-20),
             lambda: self.elevator.brake()
         ))
-        # self.elevator.setDefaultCommand(
-        #     cmd.run(
-        #         lambda: self.elevator.move_test(
-        #             int(self._functional_controller.getRawAxis(XboxController.Axis.kLeftY))
-        #         ),
-        #         self.elevator
-        #     )
-        # )
         
-        # Position-based elevator controls
-        self._functional_controller.pov(0).whileTrue(self.elevator.move(ElevatorPositions.Level3, ElevatorMode.POSITION)) #top
-        self._functional_controller.pov(90).whileTrue(self.elevator.move(ElevatorPositions.Level4, ElevatorMode.POSITION)) #right
-        self._functional_controller.pov(180).whileTrue(self.elevator.move(ElevatorPositions.Level1, ElevatorMode.POSITION)) #bottom
-        self._functional_controller.pov(270).whileTrue(self.elevator.move(ElevatorPositions.Level2, ElevatorMode.POSITION)) #left
+        # Position-based elevator controls - tap to position instead of hold
+        self._functional_controller.pov(0).onTrue(self.elevator.move(ElevatorPositions.Level3, ElevatorMode.POSITION))   # top
+        self._functional_controller.pov(90).onTrue(self.elevator.move(ElevatorPositions.Level4, ElevatorMode.POSITION))  # right
+        self._functional_controller.pov(180).onTrue(self.elevator.move(ElevatorPositions.Level1, ElevatorMode.POSITION)) # bottom
+        self._functional_controller.pov(270).onTrue(self.elevator.move(ElevatorPositions.Level2, ElevatorMode.POSITION)) # left
 
     def _configure_wheels_controls(self) -> None:
-        # Intake/outtake controls
-        self._functional_controller.rightTrigger().whileTrue(cmd.parallel(
-            self.wheels.run(50),
-            cmd.run(lambda: None)
-        ))
-        self._functional_controller.leftTrigger().whileTrue(cmd.parallel(
-            self.wheels.run(-50),
-            cmd.run(lambda: None)
-        ))
+        # Intake/outtake controls - simplified by removing unnecessary parallel command
+        self._functional_controller.rightTrigger().whileTrue(self.wheels.run(50))
+        self._functional_controller.leftTrigger().whileTrue(self.wheels.run(-50))
+        
     def _configure_climb_controls(self) -> None:
         # Climb controls
         self._functional_controller.rightBumper().whileTrue(self.climb.run(25))
@@ -149,11 +141,16 @@ class RobotContainer:
         self.rotate_command.setDefaultCommand(
             cmd.run(
                 lambda: self.rotate_command.rotate(
-                    int(self._functional_controller.getRawAxis(XboxController.Axis.kRightY))
+                    self._functional_controller.getRightY()  # Use the raw float value instead of casting to int
                 ),
                 self.rotate_command
             )
         )
+        
     def getAutonomousCommand(self) -> commands2.Command:
+        # Uncomment the line below to use the two-piece autonomous routine
+        # return create_two_piece_auto(self.drivetrain, self.elevator)
+        
+        # Default to the forward autonomous routine
         return create_forward_auto(self.drivetrain)
         #return commands2.cmd.print_("No autonomous command configured")

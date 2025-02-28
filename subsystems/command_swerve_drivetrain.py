@@ -1,24 +1,46 @@
-from commands2 import Command, Subsystem
-from commands2.sysid import SysIdRoutine
+# ===== SWERVE DRIVE SYSTEM =====
+# This file controls the robot's main driving system, called a "swerve drive"
+# A swerve drive allows the robot to move in ANY direction and rotate at the same time
+# Think of it like a shopping cart where each wheel can turn independently
+
+# Import necessary libraries - these give us the tools to control the robot
+from commands2 import Command, Subsystem  # WPILib command-based programming framework
+from commands2.sysid import SysIdRoutine  # System identification for tuning
 import math
-from phoenix6 import SignalLogger, swerve, units, utils
-from typing import Callable, overload
-from wpilib import DriverStation, Notifier, RobotController
-from wpilib.sysid import SysIdRoutineLog
-from wpimath.geometry import Rotation2d
+from phoenix6 import SignalLogger, swerve, units, utils  # CTRE Phoenix 6 libraries
+from typing import Callable, overload  # Python typing utilities
+from wpilib import DriverStation, Notifier, RobotController  # WPILib utilities
+from wpilib.sysid import SysIdRoutineLog  # Logging for system identification
+from wpimath.geometry import Rotation2d  # WPILib geometry utilities
 
 class CommandSwerveDrivetrain(Subsystem, swerve.SwerveDrivetrain):
     """
-    Class that extends the Phoenix 6 SwerveDrivetrain class and implements
+    This is the main driving system of the robot. It controls all four wheels,
+    allowing the robot to drive in any direction and rotate at the same time.
+    
+    The swerve drive is what makes the robot so maneuverable - each wheel can
+    turn independently (like the front wheels of a car) AND drive independently.
+    This gives the robot the ability to:
+    - Drive forward/backward
+    - Drive left/right (sideways)
+    - Drive diagonally
+    - Rotate in place
+    - Do any combination of the above at the same time!
+    
+    Technical note: This class extends the Phoenix 6 SwerveDrivetrain class and implements
     Subsystem so it can easily be used in command-based projects.
     """
 
+    # How often the simulation updates (5 milliseconds)
     _SIM_LOOP_PERIOD: units.second = 0.005
 
+    # These define which direction is "forward" depending on which alliance we're on
+    # This helps the drivers control the robot consistently regardless of starting position
     _BLUE_ALLIANCE_PERSPECTIVE_ROTATION = Rotation2d.fromDegrees(0)
-    """Blue alliance sees forward as 0 degrees (toward red alliance wall)"""
+    """When we're on the blue alliance, forward is toward the red alliance wall"""
     _RED_ALLIANCE_PERSPECTIVE_ROTATION = Rotation2d.fromDegrees(180)
-    """Red alliance sees forward as 180 degrees (toward blue alliance wall)"""
+    """When we're on the red alliance, forward is toward the blue alliance wall"""
+    # (This means the driver's controls stay consistent regardless of which side we start on)
 
     @overload
     def __init__(
@@ -263,8 +285,15 @@ class CommandSwerveDrivetrain(Subsystem, swerve.SwerveDrivetrain):
         self, request: Callable[[], swerve.requests.SwerveRequest]
     ) -> Command:
         """
-        Returns a command that applies the specified control request to this swerve drivetrain.
-
+        Creates a command that tells the swerve drive to move in a specific way.
+        
+        This is like telling your car "drive forward at 25 mph" or "turn left while moving forward".
+        The request contains information about:
+        - Which direction to move (forward/backward, left/right)
+        - How fast to move
+        - Whether to rotate and how quickly
+        
+        Technical details:
         :param request: Lambda returning the request to apply
         :type request: Callable[[], swerve.requests.SwerveRequest]
         :returns: Command to run
@@ -297,11 +326,16 @@ class CommandSwerveDrivetrain(Subsystem, swerve.SwerveDrivetrain):
         return self._sys_id_routine_to_apply.dynamic(direction)
 
     def periodic(self):
-        # Periodically try to apply the operator perspective.
-        # If we haven't applied the operator perspective before, then we should apply it regardless of DS state.
-        # This allows us to correct the perspective in case the robot code restarts mid-match.
-        # Otherwise, only check and apply the operator perspective if the DS is disabled.
-        # This ensures driving behavior doesn't change until an explicit disable event occurs during testing.
+        # This function runs repeatedly during the match
+        
+        # WHAT THIS DOES: Makes sure the robot knows which direction is "forward"
+        # based on which alliance (red or blue) we're on
+        #
+        # WHY THIS MATTERS: It ensures the driver's controls are consistent
+        # regardless of which side of the field we start on. "Forward" on the
+        # controller will always move the robot away from our alliance wall.
+        #
+        # This is like setting up a GPS in your car to match the direction you're facing
         if not self._has_applied_operator_perspective or DriverStation.isDisabled():
             alliance_color = DriverStation.getAlliance()
             if alliance_color is not None:
@@ -326,11 +360,16 @@ class CommandSwerveDrivetrain(Subsystem, swerve.SwerveDrivetrain):
         self._sim_notifier.startPeriodic(self._SIM_LOOP_PERIOD)
 
     def should_flip_path():
+        # Determines if we need to mirror our autonomous paths based on alliance color
+        # If we're on the red alliance, we flip the path to match the field orientation
         return DriverStation.getAlliance() == DriverStation.Alliance.kRed
 
     def get_robot_relative_speed(self):
-        
+        # Gets how fast the robot is currently moving (from the robot's perspective)
+        # This includes forward/backward speed, side-to-side speed, and rotation speed
         return self.get_state().speeds
     
     def drive_robot_relative(self, speeds):
+        # Tells the robot to move at a specific speed relative to its current orientation
+        # This is like saying "move forward at X speed" regardless of which way the robot is facing
         self.set_control(swerve.requests.DriveVelocity(speeds))
