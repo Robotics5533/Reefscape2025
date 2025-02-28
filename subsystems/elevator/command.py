@@ -13,9 +13,9 @@ from utils.motor_constants import percent_to_voltage, MOTOR_CONFIG, voltage_to_p
 
 class ElevatorPositions():
     Level1 = 0
-    Level2 = 10
-    Level3 = 18
-    Level4 = 24
+    Level2 = 6
+    Level3 = 15
+    Level4 = 27.5
 
 class ElevatorMode(Enum):
     MANUAL = "manual" 
@@ -47,8 +47,8 @@ class Elevator(Subsystem):
         self.position_controller.setTolerance(0.5)
         
         # Constants for physics-based compensation
-        self.kG = 0.4  # Gravity compensation - Counteracts the weight of the elevator
-        self.kS = 0.1  # Static friction compensation - Overcomes motor and mechanism friction
+        # self.kG = 25  # Gravity compensation - Counteracts the weight of the elevator
+        # self.kS = 5  # Static friction compensation - Overcomes motor and mechanism friction
 
         self.periodic()
 
@@ -105,9 +105,9 @@ class Elevator(Subsystem):
                 # 1. kG: Counteracts gravity (constant force upward)
                 # 2. kS: Overcomes static friction (applies in direction of motion)
                 # 3. PID output: Corrects position error
-                gravity_comp = self.kG  # Always apply upward force to counter gravity
-                static_comp = self.kS * (1 if pid_output > 0 else -1)  # Apply in direction of desired motion
-                output = pid_output + gravity_comp + (static_comp)
+                # gravity_comp = self.kG  # Always apply upward force to counter gravity
+                # static_comp = self.kS * (1 if pid_output > 0 else -1)  # Apply in direction of desired motion
+                output = pid_output # + gravity_comp + (static_comp)
                 
                 self.move_motor(voltage_to_percent(output))
                 

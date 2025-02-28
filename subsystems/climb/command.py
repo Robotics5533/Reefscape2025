@@ -23,6 +23,7 @@ class Climb(Subsystem):
         """Stop the motor and engage brake mode"""
         self.motor.setVoltage(0)
         self.motor.setNeutralMode(signals.NeutralModeValue.BRAKE)
+        
 
     def set_speed(self, speed_percent: float) -> None:
         """Set the motor speed as a percentage (-100 to 100)"""

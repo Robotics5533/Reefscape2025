@@ -15,12 +15,12 @@ class ToReefPath(BasePath):
             self.drivetrain.apply_request(
                 lambda: (
                     swerve.requests.FieldCentric()
-                    .with_velocity_x(-0.5)
+                    .with_velocity_x(0.5)
                     .with_velocity_y(0)
                     .with_rotational_rate(0)
                 )
             )
-            .until(lambda: abs(self.drivetrain.get_state().pose.x - self.state.seed_pose.x) >= feetToMeters(5))
+            .until(lambda: abs(self.drivetrain.get_state().pose.x - self.state.seed_pose.x) >= feetToMeters(7))
         )
 
 def create_path_to_reef(drivetrain: CommandSwerveDrivetrain, state: PathState) -> Command:
