@@ -9,7 +9,11 @@ import commands2.button
 import commands2.cmd
 from commands2 import cmd
 from wpilib import SmartDashboard, XboxController
-from autonomous.autons.forward import create_forward_auto
+import wpilib
+import os
+import importlib
+import inspect
+import sys
 from subsystems.climb.command import Climb
 from subsystems.elevator.command import Elevator, ElevatorMode, ElevatorPositions
 from generated.tuner_constants import TunerConstants
@@ -32,6 +36,15 @@ class RobotContainer:
     """
 
     def __init__(self) -> None:
+        # Initialize autonomous chooser
+        self._auto_chooser = wpilib.SendableChooser()
+        
+        # Load autonomous routines dynamically
+        self._auto_routines = {}
+        self._load_autonomous_routines()
+        
+        SmartDashboard.putData("Auto Chooser", self._auto_chooser)
+        
         # Initialize drivetrain configuration
         self._configure_drivetrain()
         
@@ -147,10 +160,71 @@ class RobotContainer:
             )
         )
         
-    def getAutonomousCommand(self) -> commands2.Command:
-        # Uncomment the line below to use the two-piece autonomous routine
-        # return create_two_piece_auto(self.drivetrain, self.elevator)
+    def _load_autonomous_routines(self) -> None:
+        """Dynamically load autonomous routines from the autons folder"""
+        autons_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "autonomous", "autons")
         
-        # Default to the forward autonomous routine
-        return create_forward_auto(self.drivetrain)
-        #return commands2.cmd.print_("No autonomous command configured")
+        # Get all Python files in the autons directory
+        for file in os.listdir(autons_dir):
+            if file.endswith(".py") and file != "__init__.py":
+                module_name = file[:-3]  # Remove .py extension
+                
+                try:
+                    # Import the module dynamically
+                    module_path = f"autonomous.autons.{module_name}"
+                    module = importlib.import_module(module_path)
+                    
+                    # Look for create_*_auto functions in the module
+                    for name, obj in inspect.getmembers(module):
+                        if name.startswith("create_") and name.endswith("_auto") and inspect.isfunction(obj):
+                            # Extract auto name from function name (e.g., create_forward_auto -> forward)
+                            auto_name = name[7:-5]  # Remove "create_" and "_auto"
+                            
+                            # Store the function reference
+                            self._auto_routines[auto_name] = obj
+                            
+                            # Add to chooser (make the first one default)
+                            display_name = " ".join(word.capitalize() for word in auto_name.split("_")) + " Auto"
+                            
+                            if not self._auto_chooser.getSelected():
+                                self._auto_chooser.setDefaultOption(display_name, auto_name)
+                            else:
+                                self._auto_chooser.addOption(display_name, auto_name)
+                                
+                            print(f"Loaded autonomous routine: {display_name}")
+                            
+                except Exception as e:
+                    print(f"Error loading autonomous routine from {file}: {e}")
+        
+        # If no routines were found, add a default option
+        if not self._auto_routines:
+            self._auto_chooser.setDefaultOption("No Autonomous Available", "none")
+            print("No autonomous routines found in the autons directory")
+    
+    def getAutonomousCommand(self) -> commands2.Command:
+        """Get the selected autonomous command based on the chooser selection"""
+        selected_auto = self._auto_chooser.getSelected()
+        
+        # If we have a valid routine, execute it
+        if selected_auto in self._auto_routines:
+            # Get the function reference
+            create_auto_func = self._auto_routines[selected_auto]
+            
+            # Inspect the function to determine required parameters
+            sig = inspect.signature(create_auto_func)
+            params = {}
+            
+            # Add required parameters based on function signature
+            for param_name, param in sig.parameters.items():
+                if param_name == "drivetrain":
+                    params["drivetrain"] = self.drivetrain
+                elif param_name == "elevator":
+                    params["elevator"] = self.elevator
+                elif param_name == "wheels":
+                    params["wheels"] = self.wheels
+            
+            # Call the function with the appropriate parameters
+            return create_auto_func(**params)
+        
+        # Return a default command if no valid selection
+        return commands2.cmd.print_("No autonomous command configured")
