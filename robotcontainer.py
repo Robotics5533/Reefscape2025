@@ -222,6 +222,9 @@ class RobotContainer:
                     params["elevator"] = self.elevator
                 elif param_name == "wheels":
                     params["wheels"] = self.wheels
+                elif param_name == "continuous_align":
+                    # Enable continuous alignment for better target tracking
+                    params["continuous_align"] = False
             
             # Call the function with the appropriate parameters
             return create_auto_func(**params)
