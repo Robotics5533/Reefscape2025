@@ -31,7 +31,7 @@ def place_coral(elevator: Elevator, wheels: Wheels, target_position: ElevatorPos
     return (
         elevator_command
         .andThen(create_wait_command(0.1))  # Wait for elevator to stabilize
-        .andThen(wheels.run(-50))  # Run wheels in reverse to release coral
-        .andThen(create_wait_command(0.5))  # Run wheels for 0.5 second
+        .andThen(wheels.run(50))  # Run wheels in reverse to release coral
+        .andThen(create_wait_command(2))  # Run wheels for 0.5 second
         .andThen(elevator.move(ElevatorPositions.Level1, ElevatorMode.POSITION))  # Lower elevator back to ground position
     )

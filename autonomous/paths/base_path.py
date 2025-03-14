@@ -1,12 +1,14 @@
 from dataclasses import dataclass
+from math import degrees
 from typing import Optional
-from wpimath.geometry import Pose2d
+from wpimath.geometry import Pose2d, Rotation2d
 from commands2 import Command
 from subsystems.command_swerve_drivetrain import CommandSwerveDrivetrain
 
 @dataclass
 class PathState:
     seed_pose: Optional[Pose2d] = None
+    seed_rotation: Optional[Rotation2d] = None
     current_path: str = ""
 
 class BasePath:
@@ -16,6 +18,7 @@ class BasePath:
         
     def update_seed(self, path_name: str):
         self.state.seed_pose = self.drivetrain.get_state().pose
+        self.state.seed_rotation = self.drivetrain.get_state().raw_heading
         self.state.current_path = path_name
         
     def create_path(self) -> Command:
