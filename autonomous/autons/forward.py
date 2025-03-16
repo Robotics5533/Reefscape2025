@@ -20,7 +20,11 @@ def create_forward_auto(drivetrain: CommandSwerveDrivetrain, elevator: Elevator 
     
     # Create the path commands using the new path builder
     path_command = create_path(drivetrain, state, "to_reef", 
-        lambda builder: builder.move_x(0.7, 4.8, Direction.BACKWARD)) # Second number (presently 4.8 is feet to drive forward from robot centric, or backward(third parameter) from field centric)
+        lambda builder: builder.move(
+            velocity=(0.7, 0.0, 0.0),
+            distance=(4.8, 0.0, 0.0),
+            direction=(Direction.BACKWARD, Direction.RIGHT, Direction.CLOCKWISE)
+        )) # Second number (presently 4.8 is feet to drive forward from robot centric, or backward(third parameter) from field centric)
     
     
     if elevator is None:

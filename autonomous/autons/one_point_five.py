@@ -28,6 +28,6 @@ def create_one_point_five_auto(drivetrain: CommandSwerveDrivetrain, elevator: El
         # .andThen(create_for_command(lambda: wheels.move(50), 1.2, lambda: wheels.brake()))
         # .andThen(elevator.move(ElevatorPositions.Level1, ElevatorMode.POSITION))
         # .andThen(create_for_command(lambda: elevator.set_tolerance(0.5), 0.1))
-        .andThen(create_path(drivetrain, state, "to_station", lambda builder: builder.move_y(1.0, 4.0, Direction.RIGHT)))
+        .andThen(create_path(drivetrain, state, "to_station", lambda builder: builder.move_y(1.0, 0.5, Direction.RIGHT)))
         .andThen(create_path(drivetrain, state, "station_forward", lambda builder: builder.move_x(1.0, 4.0, Direction.BACKWARD)))
     )

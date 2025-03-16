@@ -20,9 +20,21 @@ def create_left_auto_disabled(drivetrain: CommandSwerveDrivetrain, elevator: Ele
     # Create the path commands using the new path builder
     path_command = create_path(drivetrain, state, "to_reef_left", 
         lambda builder: (builder
-            .move_x(0.7, 8.5, Direction.BACKWARD)
-            .rotate(0.7, 127, Direction.CLOCKWISE)
-            .move_x(0.7, 2.0, Direction.BACKWARD)))
+            .move(
+                velocity=(0.7, 0.0, 0.0),
+                distance=(8.5, 0.0, 0.0),
+                direction=(Direction.BACKWARD, Direction.RIGHT, Direction.CLOCKWISE)
+            )
+            .move(
+                velocity=(0.0, 0.0, 0.7),
+                distance=(0.0, 0.0, 127.0),
+                direction=(Direction.FORWARD, Direction.RIGHT, Direction.CLOCKWISE)
+            )
+            .move(
+                velocity=(0.7, 0.0, 0.0),
+                distance=(2.0, 0.0, 0.0),
+                direction=(Direction.BACKWARD, Direction.RIGHT, Direction.CLOCKWISE)
+            )))
     
     if elevator is None:
         return (

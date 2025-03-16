@@ -18,9 +18,10 @@ class Direction(Enum):
 
 @dataclass
 class Movement:
-    velocity: float = 0
-    distance: float = 0
-    direction: Direction = Direction.FORWARD
+    velocity: tuple[float, float, float] = (0, 0, 0)  # (x, y, z)
+    distance: tuple[float, float, float] = (0, 0, 0)  # (x, y, z) in feet
+    direction: tuple[Direction, Direction, Direction] = (Direction.FORWARD, Direction.RIGHT, Direction.CLOCKWISE)  # (x, y, z)
+    timeout: float = None
 
 class PathBuilder:
     def __init__(self, drivetrain: CommandSwerveDrivetrain, state: PathState):
@@ -29,48 +30,81 @@ class PathBuilder:
         self.movements: List[Movement] = []
 
 
-
-    def move_x(self, velocity: float, distance_feet: float, direction: Direction = Direction.FORWARD) -> 'PathBuilder':
-        if direction not in [Direction.FORWARD, Direction.BACKWARD]:
+    # def move_x(self, velocity: float, distance_feet: float, direction: Direction = Direction.FORWARD, timeout: float = None) -> 'PathBuilder':
+    #     if direction not in [Direction.FORWARD, Direction.BACKWARD]:
+    #         raise ValueError("X movement must be FORWARD or BACKWARD")
+    #     actual_velocity = velocity if direction == Direction.FORWARD else -velocity
+    #     self.movements.append(Movement(velocity=actual_velocity, distance=distance_feet, direction=direction, timeout=timeout))
+    #     return self
+    
+    # def move_y(self, velocity: float, distance_feet: float, direction: Direction = Direction.RIGHT, timeout: float = None) -> 'PathBuilder':
+    #     if direction not in [Direction.LEFT, Direction.RIGHT]:
+    #         raise ValueError("Y movement must be LEFT or RIGHT")
+    #     actual_velocity = velocity if direction == Direction.RIGHT else -velocity
+    #     self.movements.append(Movement(velocity=actual_velocity, distance=distance_feet, direction=direction, timeout=timeout))
+    #     return self
+    
+    # def rotate(self, rate: float, degrees: float, direction: Direction = Direction.CLOCKWISE, timeout: float = None) -> 'PathBuilder':
+    #     if direction not in [Direction.CLOCKWISE, Direction.COUNTERCLOCKWISE]:
+    #         raise ValueError("Rotation must be CLOCKWISE or COUNTERCLOCKWISE")
+    #     actual_rate = rate if direction == Direction.CLOCKWISE else -rate
+    #     self.movements.append(Movement(velocity=actual_rate, distance=degrees, direction=direction, timeout=timeout))
+    #     return self
+    
+    def move(self, velocity: tuple[float, float, float], distance: tuple[float, float, float],
+              direction: tuple[Direction, Direction, Direction] = (Direction.FORWARD, Direction.RIGHT, Direction.CLOCKWISE),
+              timeout: float = None) -> 'PathBuilder':
+        if direction[0] not in [Direction.FORWARD, Direction.BACKWARD]:
             raise ValueError("X movement must be FORWARD or BACKWARD")
-        actual_velocity = velocity if direction == Direction.FORWARD else -velocity
-        self.movements.append(Movement(velocity=actual_velocity, distance=distance_feet, direction=direction))
-        return self
-    
-    def move_y(self, velocity: float, distance_feet: float, direction: Direction = Direction.RIGHT) -> 'PathBuilder':
-        if direction not in [Direction.LEFT, Direction.RIGHT]:
+        if direction[1] not in [Direction.LEFT, Direction.RIGHT]:
             raise ValueError("Y movement must be LEFT or RIGHT")
-        actual_velocity = velocity if direction == Direction.RIGHT else -velocity
-        self.movements.append(Movement(velocity=actual_velocity, distance=distance_feet, direction=direction))
-        return self
-    
-    def rotate(self, rate: float, degrees: float, direction: Direction = Direction.CLOCKWISE) -> 'PathBuilder':
-        if direction not in [Direction.CLOCKWISE, Direction.COUNTERCLOCKWISE]:
-            raise ValueError("Rotation must be CLOCKWISE or COUNTERCLOCKWISE")
-        actual_rate = rate if direction == Direction.CLOCKWISE else -rate
-        self.movements.append(Movement(velocity=actual_rate, distance=degrees, direction=direction))
+        if direction[2] not in [Direction.CLOCKWISE, Direction.COUNTERCLOCKWISE]:
+            raise ValueError("Z movement must be CLOCKWISE or COUNTERCLOCKWISE")
+            
+        actual_velocity = (
+            velocity[0] if direction[0] == Direction.FORWARD else -velocity[0],
+            velocity[1] if direction[1] == Direction.RIGHT else -velocity[1],
+            velocity[2] if direction[2] == Direction.CLOCKWISE else -velocity[2]
+        )
+        
+        self.movements.append(Movement(
+            velocity=actual_velocity,
+            distance=distance,
+            direction=direction,
+            timeout=timeout
+        ))
         return self
     
     def _create_movement_command(self, movement: Movement) -> Command:
         request = swerve.requests.FieldCentric()
         
-        if movement.direction in [Direction.FORWARD, Direction.BACKWARD]:
-            request = request.with_velocity_x(movement.velocity).with_velocity_y(0).with_rotational_rate(0)
-            initial_x = self.drivetrain.get_state().pose.x
-            condition = lambda: abs(self.drivetrain.get_state().pose.x - initial_x) >= feetToMeters(movement.distance)
+        request = (request
+            .with_velocity_x(movement.velocity[0])
+            .with_velocity_y(movement.velocity[1])
+            .with_rotational_rate(movement.velocity[2]))
         
-        elif movement.direction in [Direction.LEFT, Direction.RIGHT]:
-            request = request.with_velocity_x(0).with_velocity_y(movement.velocity).with_rotational_rate(0)
-            initial_y = self.drivetrain.get_state().pose.y
-            condition = lambda: abs(self.drivetrain.get_state().pose.y - initial_y) >= feetToMeters(movement.distance)
+        initial_x = self.drivetrain.get_state().pose.x
+        initial_y = self.drivetrain.get_state().pose.y
+        initial_heading = float(self.drivetrain.get_state().raw_heading.degrees())
         
-        else:  # CLOCKWISE or COUNTERCLOCKWISE
-            request = request.with_velocity_x(0).with_velocity_y(0).with_rotational_rate(movement.velocity)
-            initial_heading = float(self.drivetrain.get_state().raw_heading.degrees())
-            condition = lambda: abs(float(self.drivetrain.get_state().raw_heading.degrees()) - initial_heading) >= abs(movement.distance)
-          
+        def check_condition():
+            current_x = self.drivetrain.get_state().pose.x
+            current_y = self.drivetrain.get_state().pose.y
+            current_heading = float(self.drivetrain.get_state().raw_heading.degrees())
             
-        return self.drivetrain.apply_request(lambda: request).until(condition)
+            x_done = abs(current_x - initial_x) >= feetToMeters(movement.distance[0])
+            y_done = abs(current_y - initial_y) >= feetToMeters(movement.distance[1])
+            z_done = abs(current_heading - initial_heading) >= abs(movement.distance[2])
+            
+            return x_done and y_done and z_done
+        
+        command = self.drivetrain.apply_request(lambda: request).until(check_condition)
+        
+        
+        if movement.timeout is not None:
+            command = command.withTimeout(movement.timeout)
+            
+        return command
     
     def build(self, path_name: str) -> Command:
         if not self.movements:
@@ -86,11 +120,11 @@ class PathBuilder:
         return (
             command
             .andThen(self.drivetrain.runOnce(lambda: self.drivetrain.set_control(swerve.requests.SwerveDriveBrake())))
-            .finallyDo(lambda interrupted: self.drivetrain.set_control(swerve.requests.SwerveDriveBrake()) if interrupted else None)
         )
 
 def create_path(drivetrain: CommandSwerveDrivetrain, state: PathState, path_name: str,
                 build_func: Callable[[PathBuilder], PathBuilder]) -> Command:
     builder = PathBuilder(drivetrain, state)
+    
     build_func(builder)
     return builder.build(path_name)

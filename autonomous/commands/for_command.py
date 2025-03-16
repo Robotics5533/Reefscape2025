@@ -18,14 +18,12 @@ def create_for_command(cmd, duration: float, end_func = None) -> Command:
             self.cmd = cmd
             self.duration = duration
             self.end_func = end_func
-            SmartDashboard.putBoolean("Wheels/Execute", False)
             
         def initialize(self) -> None:
             self.timer.restart()
             
         def execute(self) -> None:
             self.cmd()
-            SmartDashboard.putBoolean("Wheels/Execute", True)
             
         def isFinished(self) -> bool:
             return self.timer.hasElapsed(self.duration)

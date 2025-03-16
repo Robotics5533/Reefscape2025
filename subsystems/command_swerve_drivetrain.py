@@ -369,7 +369,8 @@ class CommandSwerveDrivetrain(Subsystem, swerve.SwerveDrivetrain):
         # This includes forward/backward speed, side-to-side speed, and rotation speed
         return self.get_state().speeds
     
-    def drive_robot_relative(self, speeds):
-        # Tells the robot to move at a specific speed relative to its current orientation
-        # This is like saying "move forward at X speed" regardless of which way the robot is facing
-        self.set_control(swerve.requests.DriveVelocity(speeds))
+    # def drive_robot_relative(self, speeds):
+    #     # Tells the robot to move at a specific speed relative to its current orientation
+    #     # This is like saying "move forward at X speed" regardless of which way the robot is facing
+    #     self.set_control(swerve.requests.DriveVelocity(speeds))
+    # DriveVelocity doesn't exist on swerve.requests
